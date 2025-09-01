@@ -113,12 +113,11 @@ def setup_sidebar():
     return selected_model, gameweeks_ahead, temperature
 
 
-def initialize_recommender(api_key, model, temperature):
+def initialize_recommender(model, temperature):
     """Initialize the FPL recommender"""
     try:
         # Try to get API key from multiple sources
         final_api_key = (
-            api_key or
             os.getenv('OPENAI_API_KEY') or
             st.secrets.get('OPENAI_API_KEY', None) if hasattr(st, 'secrets') else None
         )
@@ -395,7 +394,7 @@ def main():
         # Initialize recommender button
         if st.button("🚀 Initialize Recommender", type="primary"):
             with st.spinner("Initializing recommender..."):
-                success, message = initialize_recommender(api_key, selected_model, temperature)
+                success, message = initialize_recommender(selected_model, temperature)
                 if success:
                     st.success(message)
                 else:
