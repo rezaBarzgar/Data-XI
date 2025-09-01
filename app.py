@@ -377,7 +377,7 @@ def main():
     st.markdown("Get AI-powered captain recommendations for your Fantasy Premier League team")
 
     # Sidebar configuration
-    api_key, selected_model, gameweeks_ahead, temperature = setup_sidebar()
+    selected_model, gameweeks_ahead, temperature = setup_sidebar()
 
     # Main content area
     col1, col2 = st.columns([2, 1])
