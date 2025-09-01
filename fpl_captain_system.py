@@ -5,8 +5,10 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
-from langchain_openai import ChatOpenAI  # or your preferred LLM
+from langchain_openai import ChatOpenAI
 import time
+import streamlit as st
+
 
 @dataclass
 class PlayerData:
@@ -38,9 +40,15 @@ class FixtureData:
     kickoff_time: str
     gameweek: int
 
-
+DIFFICULTY = {
+    1: "Very Easy",
+    2: "Easy",
+    3: "Medium",
+    4: "Hard",
+    5: "Very Hard"
+}
 class FPLCaptainRecommender:
-    def __init__(self, llm_model="gpt-5-nano", openai_api_key=None):
+    def __init__(self, llm_model="gpt-4o-mini", openai_api_key=None):
         self.base_url = "https://fantasy.premierleague.com/api"
         self.session = requests.Session()
         self.session.headers.update({
@@ -48,7 +56,7 @@ class FPLCaptainRecommender:
         })
 
         # Get API key from environment or parameter
-        api_key = openai_api_key or os.getenv('OPENAI_API_KEY')
+        api_key =  os.getenv('OPENAI_API_KEY') or st.secrets.get('OPENAI_API_KEY', None) if hasattr(st, 'secrets') else None
         if not api_key:
             raise ValueError(
                 "OpenAI API key not found. Please set the OPENAI_API_KEY environment variable "
@@ -58,6 +66,7 @@ class FPLCaptainRecommender:
         # Initialize LangChain components
         self.llm = ChatOpenAI(
             model=llm_model,
+            temperature=0.1,
             openai_api_key=api_key
         )
         self.output_parser = JsonOutputParser()
@@ -118,8 +127,8 @@ class FPLCaptainRecommender:
 
         return 1  # Default fallback
 
-    def get_upcoming_fixtures(self, gameweeks: int = 3) -> List[FixtureData]:
-        """Get upcoming fixtures for next few gameweeks"""
+    def get_upcoming_fixtures(self, gameweeks: int = 1) -> List[FixtureData]:
+        """Get upcoming fixtures for next gameweek"""
         if self._fixtures_cache:
             return self._fixtures_cache
 
@@ -132,9 +141,7 @@ class FPLCaptainRecommender:
             upcoming_fixtures = []
 
             for fixture in fixtures_data:
-                if (fixture.get('event') and
-                        current_gw <= fixture['event'] <= current_gw + gameweeks - 1 and
-                        not fixture.get('finished')):
+                if (fixture['event'] == current_gw + 1):
                     upcoming_fixtures.append(FixtureData(
                         team_h=fixture['team_h'],
                         team_a=fixture['team_a'],
@@ -223,8 +230,8 @@ class FPLCaptainRecommender:
 
         return ownership_data
 
-    def get_team_fixture_difficulty(self, team_id: int, gameweeks: int = 3) -> List[int]:
-        """Get fixture difficulty for a team over next few gameweeks"""
+    def get_team_fixture_difficulty(self, team_id: int, gameweeks: int = 1) -> List[int]:
+        """Get fixture difficulty for a team for the current gameweek"""
         fixtures = self.get_upcoming_fixtures(gameweeks)
         bootstrap_data = self.fetch_fpl_bootstrap_data()
         teams = {team['id']: team for team in bootstrap_data.get('teams', [])}
@@ -245,12 +252,12 @@ class FPLCaptainRecommender:
         prompt_template = """
 You are an expert Fantasy Premier League analyst. Your task is to recommend 3 different captain choices for the given team, ranking them from best to worst with detailed reasoning.
 
-CURRENT GAMEWEEK: {current_gameweek}
+NEXT GAMEWEEK: {next_gameweek}
 
 AVAILABLE CAPTAIN OPTIONS:
 {player_details}
 
-UPCOMING FIXTURES (next 3 gameweeks):
+NEXT GAMEWEEK FIXTURES:
 {fixture_analysis}
 
 INJURY/AVAILABILITY NEWS:
@@ -259,7 +266,7 @@ INJURY/AVAILABILITY NEWS:
 OWNERSHIP DATA:
 {ownership_info}
 
-Please analyze and provide exactly 3 captain recommendations in the following JSON format:
+Please analyze and provide exactly 3 captain recommendations focusing on the current gameweek performance in the following JSON format:
 {{
     "recommendations": [
         {{
@@ -339,14 +346,14 @@ Focus on players who are likely to start and have good scoring potential.
                     # Get team fixture difficulties
                     team_id_for_player = next((team['id'] for team in self.fetch_fpl_bootstrap_data()['teams']
                                                if team['name'] == player.team), 0)
-                    fixture_difficulties = self.get_team_fixture_difficulty(team_id_for_player)
+                    fixture_difficulties = DIFFICULTY[self.get_team_fixture_difficulty(team_id_for_player)[0]]
 
                     player_detail = f"""
 - {player.name} ({player.team}) - {player.position}
   * Price: £{player.price}m | Total Points: {player.total_points} | Form: {player.form}
   * PPG: {player.points_per_game} | Goals: {player.goals_scored} | Assists: {player.assists}
   * Ownership: {player.selected_by_percent}% | Minutes: {player.minutes}
-  * Fixture Difficulty (next 3): {fixture_difficulties}
+  * Current GW Fixture Difficulty: {fixture_difficulties[0] if fixture_difficulties else 'N/A'}
   * Status: {injury_news.get(player_id, 'Available')}
 """
                     player_details.append(player_detail)
@@ -356,17 +363,19 @@ Focus on players who are likely to start and have good scoring potential.
             bootstrap_data = self.fetch_fpl_bootstrap_data()
             teams_lookup = {team['id']: team['short_name'] for team in bootstrap_data['teams']}
 
-            for fixture in fixtures[:15]:  # Show next 15 fixtures
+            for fixture in fixtures:  # Show next gameweek fixtures
                 home_team = teams_lookup.get(fixture.team_h, 'UNK')
                 away_team = teams_lookup.get(fixture.team_a, 'UNK')
                 fixture_analysis.append(
                     f"GW{fixture.gameweek}: {home_team} vs {away_team} "
-                    f"(Difficulty: {fixture.team_h_difficulty}-{fixture.team_a_difficulty})"
+                    f"(Difficulty level: {DIFFICULTY[fixture.team_h_difficulty]}"
+                    f"-{DIFFICULTY[fixture.team_a_difficulty]})"
                 )
 
+            print(fixture_analysis)
             # Compile context for prompt
             context = {
-                'current_gameweek': current_gw,
+                'next_gameweek': current_gw + 1,
                 'player_details': '\n'.join(player_details),
                 'fixture_analysis': '\n'.join(fixture_analysis),
                 'injury_news': '\n'.join([f"- {player_stats[pid].name}: {status}"
