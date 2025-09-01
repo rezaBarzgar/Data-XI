@@ -387,7 +387,7 @@ def main():
             "Enter your FPL Team ID",
             min_value=1,
             max_value=10000000,
-            value=1,
+            value=4213233,
             help="You can find your team ID in the URL when viewing your team on the FPL website"
         )
 
