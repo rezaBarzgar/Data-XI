@@ -73,7 +73,8 @@ def setup_sidebar():
     api_key = st.sidebar.text_input(
         "OpenAI API Key",
         type="password",
-        help="Enter your OpenAI API key or set OPENAI_API_KEY environment variable"
+        help="Enter your OpenAI API key, set OPENAI_API_KEY environment variable, or use Streamlit secrets",
+        placeholder="sk-..."
     )
 
     # Model selection
@@ -115,12 +116,20 @@ def setup_sidebar():
 def initialize_recommender(api_key, model, temperature):
     """Initialize the FPL recommender"""
     try:
-        if api_key:
+        # Try to get API key from multiple sources
+        final_api_key = (
+            api_key or
+            os.getenv('OPENAI_API_KEY') or
+            st.secrets.get('OPENAI_API_KEY', None) if hasattr(st, 'secrets') else None
+        )
+
+        if final_api_key:
             recommender = FPLCaptainRecommender(
                 llm_model=model,
-                openai_api_key=api_key
+                openai_api_key=final_api_key
             )
         else:
+            # Try without API key (will use environment variable)
             recommender = FPLCaptainRecommender(llm_model=model)
 
         st.session_state.recommender = recommender

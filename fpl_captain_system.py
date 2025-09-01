@@ -1,15 +1,12 @@
 import requests
 import json
 import os
-from dotenv import load_dotenv
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_openai import ChatOpenAI  # or your preferred LLM
 import time
-
-load_dotenv()
 
 @dataclass
 class PlayerData:
