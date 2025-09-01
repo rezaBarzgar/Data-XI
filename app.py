@@ -70,18 +70,18 @@ def setup_sidebar():
     st.sidebar.title("⚙️ Configuration")
 
     # API Key input
-    api_key = st.sidebar.text_input(
-        "OpenAI API Key",
-        type="password",
-        help="Enter your OpenAI API key, set OPENAI_API_KEY environment variable, or use Streamlit secrets",
-        placeholder="sk-..."
-    )
+    # api_key = st.sidebar.text_input(
+    #     "OpenAI API Key",
+    #     type="password",
+    #     help="Enter your OpenAI API key, set OPENAI_API_KEY environment variable, or use Streamlit secrets",
+    #     placeholder="sk-..."
+    # )
 
     # Model selection
     model_options = [
-        "gpt-3.5-turbo",
-        "gpt-4",
-        "gpt-4-turbo-preview",
+        # "gpt-3.5-turbo",
+        # "gpt-4",
+        # "gpt-4-turbo-preview",
         "gpt-4o-mini"
     ]
     selected_model = st.sidebar.selectbox(
@@ -110,7 +110,7 @@ def setup_sidebar():
             help="Lower values make responses more focused"
         )
 
-    return api_key, selected_model, gameweeks_ahead, temperature
+    return selected_model, gameweeks_ahead, temperature
 
 
 def initialize_recommender(api_key, model, temperature):
